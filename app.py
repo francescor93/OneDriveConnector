@@ -145,6 +145,11 @@ def getUploadUrl(config):
 def uploadBytes(config):
     try:
 
+        # If configured chunk size is larger than the maximum chunk size allowed by OneDrive correct it, but show a warning
+        if int(config["chunkSize"]) > 60:
+            config["chunkSize"] = 60
+            print("Configured chunk size is larger than allowed: proceeding using 60MB chunks.")
+
         # Open local file and calculate size
         with open(dirname(abspath(__file__)) + "/files/" + config["fileName"], "rb") as f:
             fileSize = os.path.getsize(f.name)
