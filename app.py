@@ -48,7 +48,8 @@ def main():
             # Exchange temporary code with real authentication token and get updated config
             config = exchangeToken(inputCode, config)
         except Exception as e:
-            closeWithMessage(e)
+            closeWithMessage(
+                "Error while creating authentication code: " + str(e))
 
     # If configured fileName is a directory
     if os.path.isdir("files/" + config["fileName"]):
@@ -66,7 +67,7 @@ def main():
 
             # Exit with a confirmation message
             closeWithMessage("Upload completed. " +
-                             str(filesCount) + " file(s) uploaded")
+                             str(filesCount) + " file(s) uploaded", False)
         except Exception as e:
             closeWithMessage(
                 "Error while uploading directory files: " + str(e))
@@ -77,7 +78,7 @@ def main():
             config = getUploadUrl(config, config["fileName"])
             chunks = uploadBytes(config, "files/" + config["fileName"])
             closeWithMessage("Upload completed with " +
-                             str(chunks) + " chunk(s)")
+                             str(chunks) + " chunk(s)", False)
         except Exception as e:
             closeWithMessage("Error while uploading single file: " + str(e))
 
@@ -125,7 +126,7 @@ def exchangeToken(code, config, isRefresh=False):
         # Return updated config
         return config
     except Exception as e:
-        closeWithMessage(e)
+        closeWithMessage("Error while exchanging tokens: " + str(e))
 
 
 # Function to get a new upload url for a file
@@ -170,7 +171,8 @@ def uploadBytes(config, filePath):
         # If configured chunk size is larger than the maximum chunk size allowed by OneDrive correct it, but show a warning
         if int(config["chunkSize"]) > 60:
             config["chunkSize"] = 60
-            print("Configured chunk size is larger than allowed: proceeding using 60MB chunks.")
+            print(
+                "Configured chunk size is larger than allowed: proceeding using 60MB chunks.")
 
         # Open local file and calculate size
         with open(filePath, "rb") as f:
@@ -204,13 +206,14 @@ def uploadBytes(config, filePath):
             # Return chunks count for confirmation
             return i
     except Exception as e:
-        closeWithMessage(e)
+        closeWithMessage("Error while uploading chunk: " + str(e))
 
 
 # Function to terminate the script by showing an informational message requesting confirmation
-def closeWithMessage(message):
+def closeWithMessage(message, confirmation=True):
     print(message)
-    exit = input("Hit enter to close")
+    if confirmation:
+        exit = input("Hit enter to close")
     sys.exit(1)
 
 
