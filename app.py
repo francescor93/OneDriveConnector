@@ -50,18 +50,40 @@ def main():
         except Exception as e:
             closeWithMessage(e)
 
-    # Save an upload url into config object
-    try:
-        config = getUploadUrl(config)
-    except Exception as e:
-        closeWithMessage(e)
+    # If configured fileName is a directory
+    if os.path.isdir("files/" + config["fileName"]):
+        try:
 
-    # Upload bytes to OneDrive
-    try:
-        chunks = uploadBytes(config)
-        closeWithMessage("Upload completed with " + str(chunks) + " chunk(s)")
-    except Exception as e:
-        closeWithMessage(e)
+            # Read all files inside it
+            filesCount = 0
+            for root, dirs, files in os.walk("files/" + config["fileName"]):
+
+                # For each file get an upload url and then upload it
+                for name in files:
+                    config = getUploadUrl(config, name)
+                    uploadBytes(config, os.path.join(root, name))
+                    filesCount += 1
+
+            # Exit with a confirmation message
+            closeWithMessage("Upload completed. " +
+                             str(filesCount) + " file(s) uploaded")
+        except Exception as e:
+            closeWithMessage(
+                "Error while uploading directory files: " + str(e))
+
+    # If configured filename is a file, upload it directly
+    elif os.path.isfile("files/" + config["fileName"]):
+        try:
+            config = getUploadUrl(config, config["fileName"])
+            chunks = uploadBytes(config, "files/" + config["fileName"])
+            closeWithMessage("Upload completed with " +
+                             str(chunks) + " chunk(s)")
+        except Exception as e:
+            closeWithMessage("Error while uploading single file: " + str(e))
+
+    # If configured filename is a special file, exit with a warning
+    else:
+        closeWithMessage("Configured FILENAME is invalid")
 
 
 # Function to exchange an authentication code or a refresh token with a new pair of valid authentication and refresh tokens
@@ -107,7 +129,7 @@ def exchangeToken(code, config, isRefresh=False):
 
 
 # Function to get a new upload url for a file
-def getUploadUrl(config):
+def getUploadUrl(config, fileName):
     try:
 
         # Loop indefinitely
@@ -115,7 +137,7 @@ def getUploadUrl(config):
 
             # Call endpoint
             url = "https://graph.microsoft.com/v1.0/drive/root:/" + \
-                config["fileName"] + ":/createUploadSession"
+                fileName + ":/createUploadSession"
             data = {}
             headers = {
                 "Authorization": "Bearer " + config["token"]
@@ -142,7 +164,7 @@ def getUploadUrl(config):
 
 
 # Function to upload a single file in chunks of bytes
-def uploadBytes(config):
+def uploadBytes(config, filePath):
     try:
 
         # If configured chunk size is larger than the maximum chunk size allowed by OneDrive correct it, but show a warning
@@ -151,7 +173,7 @@ def uploadBytes(config):
             print("Configured chunk size is larger than allowed: proceeding using 60MB chunks.")
 
         # Open local file and calculate size
-        with open(dirname(abspath(__file__)) + "/files/" + config["fileName"], "rb") as f:
+        with open(filePath, "rb") as f:
             fileSize = os.path.getsize(f.name)
             chunkSizeBytes = int(config["chunkSize"]) * 1024 * 1024
             i = 0
