@@ -46,7 +46,7 @@ class Connector:
                     "?client_id=" + self.clientId + \
                     "&response_type=code" + \
                     "&redirect_uri=" + quote("https://apps.francescorega.eu/1DToken") + \
-                    "&scope=User.ReadBasic.All+Files.ReadWrite+offline_access"
+                    "&scope=Files.ReadWrite+offline_access"
                 print("The authentication token has not yet been set.")
                 print("Please visit this address to authorize the app to access your account " +
                       "and paste below the token that will be returned to you:")
