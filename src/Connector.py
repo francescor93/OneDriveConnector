@@ -67,13 +67,16 @@ class Connector:
         if os.path.isdir("files/" + self.fileName):
             try:
 
+                # Create a remote folder with the same name
+                self.__createFolder(self.fileName)
+
                 # Read all files inside it
                 filesCount = 0
                 for root, dirs, files in os.walk("files/" + self.fileName):
 
                     # For each file get an upload url and upload it
                     for name in files:
-                        self.__getUploadUrl(name)
+                        self.__getUploadUrl(name, self.fileName + "/")
                         self.__uploadBytes(os.path.join(root, name))
                         filesCount += 1
 
@@ -137,9 +140,31 @@ class Connector:
             raise ConnectorException(
                 "Error while exchanging tokens: " + str(e))
 
+    # Folder creation method. Create a new remote folder with the given name as the root subfolder
+
+    def __createFolder(self, name):
+        try:
+
+            # Call endpoint
+            url = "https://graph.microsoft.com/v1.0/drive/root/children"
+            data = {
+                'name': name,
+                'folder': {}
+            }
+            headers = {
+                "Authorization": "Bearer " + self.token,
+                "Content-Type": "application/json"
+            }
+            response = requests.post(
+                url, data=json.dumps(data), headers=headers)
+
+        except Exception as e:
+            raise ConnectorException(
+                "Error while creating folder " + name + ": " + str(e))
+
     # Upload session creation method. Refreshes the token, if needed, and request, a new url for a large file upload
 
-    def __getUploadUrl(self, fileName):
+    def __getUploadUrl(self, fileName, folder=""):
         try:
 
             # Loop indefinitely
@@ -147,7 +172,7 @@ class Connector:
 
                 # Call endpoint
                 url = "https://graph.microsoft.com/v1.0/drive/root:/" + \
-                    fileName + ":/createUploadSession"
+                    folder + fileName + ":/createUploadSession"
                 data = {}
                 headers = {
                     "Authorization": "Bearer " + self.token
