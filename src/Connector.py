@@ -63,20 +63,27 @@ class Connector:
 
     def upload(self):
 
-        # If configured fileName is a directory
-        if os.path.isdir("files/" + self.fileName):
+        # If filename path is relative add "files" folder, then normalize
+        path = self.fileName
+        if not os.path.isabs(path):
+            path = "files/" + path
+        path = os.path.normpath(path)
+
+        # If configured path is a directory
+        if os.path.isdir(path):
+
             try:
 
                 # Create a remote folder with the same name
-                self.__createFolder(self.fileName)
+                self.__createFolder(os.path.basename(path))
 
                 # Read all files inside it
                 filesCount = 0
-                for root, dirs, files in os.walk("files/" + self.fileName):
+                for root, dirs, files in os.walk(path):
 
                     # For each file get an upload url and upload it
                     for name in files:
-                        self.__getUploadUrl(name, self.fileName + "/")
+                        self.__getUploadUrl(name, os.path.basename(path) + "/")
                         self.__uploadBytes(os.path.join(root, name))
                         filesCount += 1
 
@@ -86,11 +93,11 @@ class Connector:
                 raise ConnectorException(
                     "Error while uploading directory files: " + str(e))
 
-        # If configured filename is a file, upload it directly
-        elif os.path.isfile("files/" + self.fileName):
+        # If configured path is a file, upload it directly
+        elif os.path.isfile(path):
             try:
-                self.__getUploadUrl(self.fileName)
-                chunks = self.__uploadBytes("files/" + self.fileName)
+                self.__getUploadUrl(os.path.basename(path))
+                chunks = self.__uploadBytes(path)
                 return "Upload completed with " + str(chunks) + " chunk(s)"
             except Exception as e:
                 raise ConnectorException(
@@ -186,7 +193,7 @@ class Connector:
                 # If here, the request failed: let's update the token
                 self.__exchangeToken(self.refreshToken, True)
                 print("Token has been refreshed")
-
+                
             # Extract uploadUrl value from body and update local var
             body = response.text
             body = json.loads(body)
