@@ -190,14 +190,25 @@ class Connector:
                 if response.ok:
                     break
 
-                # If here, the request failed: let's update the token
-                self.__exchangeToken(self.refreshToken, True)
-                print("Token has been refreshed")
-                
-            # Extract uploadUrl value from body and update local var
+                # Check the error code
+                body = response.text
+                body = json.loads(body)
+                errorCode = body["error"]["code"]
+
+                # If token is expired, refresh it
+                if errorCode == "InvalidAuthenticationToken":
+                    self.__exchangeToken(self.refreshToken, True)
+                    print("Token has been refreshed")
+
+                # Otherwise raise an exception
+                else:
+                    raise ConnectorException(errorCode)
+
+            # Extract uploadUrl value from body and update object property
             body = response.text
             body = json.loads(body)
             self.uploadUrl = body["uploadUrl"]
+            return self.uploadUrl
         except Exception as e:
             raise ConnectorException(
                 "Error while requesting an upload url: " + str(e))
