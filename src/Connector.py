@@ -143,6 +143,7 @@ class Connector:
 
             # Update object property
             self.token = body["access_token"]
+            return body["access_token"]
         except Exception as e:
             raise ConnectorException(
                 "Error while exchanging tokens: " + str(e))
@@ -152,7 +153,7 @@ class Connector:
     def __createFolder(self, name):
         try:
 
-            # Call endpoint
+            # Prepare  data for the call
             url = "https://graph.microsoft.com/v1.0/drive/root/children"
             data = {
                 'name': name,
@@ -162,9 +163,12 @@ class Connector:
                 "Authorization": "Bearer " + self.token,
                 "Content-Type": "application/json"
             }
-            response = requests.post(
-                url, data=json.dumps(data), headers=headers)
+            response = self.__callAPI(url, json.dumps(data), headers)
 
+            # Return generated folder name for confirmation
+            body = response.text
+            body = json.loads(body)
+            return body["name"]
         except Exception as e:
             raise ConnectorException(
                 "Error while creating folder " + name + ": " + str(e))
@@ -174,41 +178,20 @@ class Connector:
     def __getUploadUrl(self, fileName, folder=""):
         try:
 
-            # Loop indefinitely
-            while True:
+            # Prepare  data for the call
+            url = "https://graph.microsoft.com/v1.0/drive/root:/" + \
+                folder + fileName + ":/createUploadSession"
+            data = {}
+            headers = {
+                "Authorization": "Bearer " + self.token
+            }
+            response = self.__callAPI(url, data, headers)
 
-                # Call endpoint
-                url = "https://graph.microsoft.com/v1.0/drive/root:/" + \
-                    folder + fileName + ":/createUploadSession"
-                data = {}
-                headers = {
-                    "Authorization": "Bearer " + self.token
-                }
-                response = requests.post(url, data=data, headers=headers)
-
-                # If the request is successful, exit the loop
-                if response.ok:
-                    break
-
-                # Check the error code
-                body = response.text
-                body = json.loads(body)
-                errorCode = body["error"]["code"]
-
-                # If token is expired, refresh it
-                if errorCode == "InvalidAuthenticationToken":
-                    self.__exchangeToken(self.refreshToken, True)
-                    print("Token has been refreshed")
-
-                # Otherwise raise an exception
-                else:
-                    raise ConnectorException(errorCode)
-
-            # Extract uploadUrl value from body and update object property
+            # Extract uploadUrl value from body, update object property and return it for confirmation
             body = response.text
             body = json.loads(body)
             self.uploadUrl = body["uploadUrl"]
-            return self.uploadUrl
+            return body["uploadUrl"]
         except Exception as e:
             raise ConnectorException(
                 "Error while requesting an upload url: " + str(e))
@@ -247,7 +230,7 @@ class Connector:
                         "Content-Length": str(rangeMax - rangeMin),
                         "Content-Range": "bytes " + str(rangeMin) + "-" + str(rangeMax) + "/" + str(fileSize)
                     }
-                    requests.put(url, data=data, headers=headers)
+                    self.__callAPI(url, data, headers, "put")
 
                     # Increase counter for next chunk
                     i += 1
@@ -256,3 +239,42 @@ class Connector:
                 return i
         except Exception as e:
             raise ConnectorException("Error while uploading chunk: " + str(e))
+
+    # API call method. Accepts the data to be sent, refreshes the token if necessary, and returns the response
+    def __callAPI(self, url, data, headers, method="post"):
+        try:
+
+            # Loop indefinitely
+            while True:
+
+                # Call endpoint with the given method
+                if method == "post":
+                    response = requests.post(url, data=data, headers=headers)
+                elif method == "put":
+                    response = requests.put(url, data=data, headers=headers)
+                else:
+                    raise ConnectorException("Missing method")
+
+                # If the request is successful, exit the loop
+                if response.ok:
+                    break
+
+                # Check the error code
+                body = response.text
+                body = json.loads(body)
+                errorCode = body["error"]["code"]
+
+                # If token is expired, refresh it and update header
+                if errorCode == "InvalidAuthenticationToken":
+                    self.__exchangeToken(self.refreshToken, True)
+                    headers["Authorization"] = "Bearer " + self.token
+                    print("Token has been refreshed")
+
+                # Otherwise raise an exception
+                else:
+                    raise ConnectorException(errorCode)
+
+            # Return the response received
+            return response
+        except Exception as e:
+            raise ConnectorException("Error while calling endpoint: " + str(e))
