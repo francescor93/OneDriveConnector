@@ -12,9 +12,9 @@ def main():
         connector = Connector()
         connector.login()
         if len(args) > 1:
-        	response = connector.upload(args[1])
+            response = connector.upload(args[1])
         else:
-        	response = connector.upload()
+            response = connector.upload()
         print(response)
     except ConnectorException as e:
         closeWithMessage(e)
