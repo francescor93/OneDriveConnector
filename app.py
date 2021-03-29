@@ -8,9 +8,13 @@ from src.ConnectorException import ConnectorException
 
 def main():
     try:
+        args = sys.argv
         connector = Connector()
         connector.login()
-        response = connector.upload()
+        if len(args) > 1:
+        	response = connector.upload(args[1])
+        else:
+        	response = connector.upload()
         print(response)
     except ConnectorException as e:
         closeWithMessage(e)

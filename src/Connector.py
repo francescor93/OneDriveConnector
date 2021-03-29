@@ -61,10 +61,10 @@ class Connector:
 
     # Upload method
 
-    def upload(self):
+    def upload(self, requiredPath=""):
 
         # If filename path is relative add "files" folder, then normalize
-        path = self.fileName
+        path = requiredPath if requiredPath != "" else self.fileName
         if not os.path.isabs(path):
             path = "files/" + path
         path = os.path.normpath(path)
