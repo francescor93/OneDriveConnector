@@ -3,6 +3,7 @@
 # Importing libraries
 import os
 import json
+import logging
 import requests
 from .ConnectorException import ConnectorException
 from urllib.parse import quote
@@ -14,6 +15,18 @@ class Connector:
 
     # Object constructor. Reads the configuration from .env file and checks for errors
     def __init__(self):
+
+        # Try to access log file or throw an exception
+        logfile = dirname(dirname(abspath(__file__))) + "/connector.log"
+        try:
+            if os.path.isfile(logfile):
+                fp = open(logfile, "a")
+            else:
+                fp = open(logfile, "w")
+        except Exception:
+            raise ConnectorException("Cannot write to log file")
+        fp.close()
+        logging.basicConfig(filename=logfile, filemode='a', format='[%(asctime)-15s] %(levelname)s: %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
 
         # Try to load .env file and save configuration into object properties
         try:
@@ -247,6 +260,11 @@ class Connector:
             # Loop indefinitely
             while True:
 
+                # Log the request
+                logging.debug("New request")
+                logging.debug(url)
+                logging.debug(headers)
+
                 # Call endpoint with the given method
                 if method == "post":
                     response = requests.post(url, data=data, headers=headers)
@@ -254,6 +272,11 @@ class Connector:
                     response = requests.put(url, data=data, headers=headers)
                 else:
                     raise ConnectorException("Missing method")
+
+                # Log the response
+                logging.debug("Response received")
+                logging.debug(response)
+                logging.debug(response.text)
 
                 # If the request is successful, exit the loop
                 if response.ok:
