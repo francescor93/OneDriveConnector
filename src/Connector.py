@@ -26,7 +26,9 @@ class Connector:
         except Exception:
             raise ConnectorException("Cannot write to log file")
         fp.close()
-        logging.basicConfig(filename=logfile, filemode='a', format='[%(asctime)-15s] %(levelname)s: %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+        logging.basicConfig(filename=logfile, filemode='a',
+                            format='[%(asctime)-15s] %(levelname)s: %(message)s',
+                            level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
 
         # Try to load .env file and save configuration into object properties
         try:
