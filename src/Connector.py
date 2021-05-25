@@ -45,6 +45,10 @@ class Connector:
                             format='[%(asctime)-15s] %(levelname)s: %(message)s',
                             level=logLevel, datefmt='%Y-%m-%d %H:%M:%S')
 
+        # Change working directory to script directory
+        dname = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        os.chdir(dname)
+
         # If (part of) configuration is missing, throw an exception
         if (self.clientId == "" or self.clientSecret == "" or self.fileName == "" or self.chunkSize == ""):
             raise ConnectorException(
