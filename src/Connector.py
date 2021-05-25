@@ -16,20 +16,6 @@ class Connector:
     # Object constructor. Reads the configuration from .env file and checks for errors
     def __init__(self):
 
-        # Try to access log file or throw an exception
-        logfile = dirname(dirname(abspath(__file__))) + "/connector.log"
-        try:
-            if os.path.isfile(logfile):
-                fp = open(logfile, "a")
-            else:
-                fp = open(logfile, "w")
-        except Exception:
-            raise ConnectorException("Cannot write to log file")
-        fp.close()
-        logging.basicConfig(filename=logfile, filemode='a',
-                            format='[%(asctime)-15s] %(levelname)s: %(message)s',
-                            level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
-
         # Try to load .env file and save configuration into object properties
         try:
             env = dirname(dirname(abspath(__file__))) + "/.env"
@@ -40,8 +26,24 @@ class Connector:
             self.clientSecret = os.getenv('CLIENTSECRET', "")
             self.fileName = os.getenv('FILENAME', "")
             self.chunkSize = os.getenv('BLOCKSIZE', "")
+            self.logLevel = os.getenv('LOGLEVEL', "INFO")
         except Exception:
             raise ConnectorException("Cannot read from .env file.")
+
+        # Try to access log file or throw an exception
+        logfile = dirname(dirname(abspath(__file__))) + "/connector.log"
+        try:
+            if os.path.isfile(logfile):
+                fp = open(logfile, "a")
+            else:
+                fp = open(logfile, "w")
+        except Exception:
+            raise ConnectorException("Cannot write to log file")
+        fp.close()
+        logLevel = logging.getLevelName(self.logLevel)
+        logging.basicConfig(filename=logfile, filemode='a',
+                            format='[%(asctime)-15s] %(levelname)s: %(message)s',
+                            level=logLevel, datefmt='%Y-%m-%d %H:%M:%S')
 
         # If (part of) configuration is missing, throw an exception
         if (self.clientId == "" or self.clientSecret == "" or self.fileName == "" or self.chunkSize == ""):
@@ -153,6 +155,7 @@ class Connector:
                 f.write("BLOCKSIZE=" + self.chunkSize + "\n")
                 f.write("CLIENTID=" + self.clientId + "\n")
                 f.write("CLIENTSECRET=" + self.clientSecret + "\n")
+                f.write("LOGLEVEL=" + self.logLevel + "\n")
                 f.write("ACCESSTOKEN=" + body["access_token"] + "\n")
                 f.write("REFRESHTOKEN=" + body["refresh_token"])
 
