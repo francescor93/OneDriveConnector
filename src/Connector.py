@@ -27,6 +27,8 @@ class Connector:
             self.fileName = os.getenv('FILENAME', "")
             self.chunkSize = os.getenv('BLOCKSIZE', "")
             self.logLevel = os.getenv('LOGLEVEL', "INFO")
+        except ConnectorException:
+            raise
         except Exception:
             raise ConnectorException("Cannot read from .env file.")
 
@@ -37,8 +39,12 @@ class Connector:
                 fp = open(logfile, "a")
             else:
                 fp = open(logfile, "w")
+        except ConnectorException:
+            raise
         except Exception:
             raise ConnectorException("Cannot write to log file")
+
+        # Configure logging
         fp.close()
         logLevel = logging.getLevelName(self.logLevel)
         logging.basicConfig(filename=logfile, filemode='a',
@@ -76,6 +82,8 @@ class Connector:
 
                 # Exchange temporary code with real authentication token
                 self.__exchangeToken(inputCode)
+            except ConnectorException:
+                raise
             except Exception as e:
                 raise ConnectorException(
                     "Error while creating authentication code: " + str(e))
@@ -110,6 +118,8 @@ class Connector:
 
                 # Return a confirmation message
                 return "Upload completed. " + str(filesCount) + " file(s) uploaded"
+            except ConnectorException:
+                raise
             except Exception as e:
                 raise ConnectorException(
                     "Error while uploading directory files: " + str(e))
@@ -120,6 +130,8 @@ class Connector:
                 self.__getUploadUrl(os.path.basename(path))
                 chunks = self.__uploadBytes(path)
                 return "Upload completed with " + str(chunks) + " chunk(s)"
+            except ConnectorException:
+                raise
             except Exception as e:
                 raise ConnectorException(
                     "Error while uploading single file: " + str(e))
@@ -166,6 +178,8 @@ class Connector:
             # Update object property
             self.token = body["access_token"]
             return body["access_token"]
+        except ConnectorException:
+            raise
         except Exception as e:
             raise ConnectorException(
                 "Error while exchanging tokens: " + str(e))
@@ -191,6 +205,8 @@ class Connector:
             body = response.text
             body = json.loads(body)
             return body["name"]
+        except ConnectorException:
+            raise
         except Exception as e:
             raise ConnectorException(
                 "Error while creating folder " + name + ": " + str(e))
@@ -214,6 +230,8 @@ class Connector:
             body = json.loads(body)
             self.uploadUrl = body["uploadUrl"]
             return body["uploadUrl"]
+        except ConnectorException:
+            raise
         except Exception as e:
             raise ConnectorException(
                 "Error while requesting an upload url: " + str(e))
@@ -259,6 +277,8 @@ class Connector:
 
                 # Return chunks count for confirmation
                 return i
+        except ConnectorException:
+            raise
         except Exception as e:
             raise ConnectorException("Error while uploading chunk: " + str(e))
 
@@ -304,9 +324,11 @@ class Connector:
 
                 # Otherwise raise an exception
                 else:
-                    raise ConnectorException(errorCode)
+                    raise Exception(errorCode)
 
             # Return the response received
             return response
+        except ConnectorException:
+            raise
         except Exception as e:
             raise ConnectorException("Error while calling endpoint: " + str(e))
