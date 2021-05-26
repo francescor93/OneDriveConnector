@@ -98,45 +98,15 @@ class Connector:
             path = "files/" + path
         path = os.path.normpath(path)
 
-        # If configured path is a directory
+        # If configured path is a directory, let's call directory upload method
         if os.path.isdir(path):
+            return self.__uploadDirectory(path)
 
-            try:
-
-                # Create a remote folder with the same name
-                self.__createFolder(os.path.basename(path))
-
-                # Read all files inside it
-                filesCount = 0
-                for root, dirs, files in os.walk(path):
-
-                    # For each file get an upload url and upload it
-                    for name in files:
-                        self.__getUploadUrl(name, os.path.basename(path) + "/")
-                        self.__uploadBytes(os.path.join(root, name))
-                        filesCount += 1
-
-                # Return a confirmation message
-                return "Upload completed. " + str(filesCount) + " file(s) uploaded"
-            except ConnectorException:
-                raise
-            except Exception as e:
-                raise ConnectorException(
-                    "Error while uploading directory files: " + str(e))
-
-        # If configured path is a file, upload it directly
+        # If configured path is a file, let's call file upload method
         elif os.path.isfile(path):
-            try:
-                self.__getUploadUrl(os.path.basename(path))
-                chunks = self.__uploadBytes(path)
-                return "Upload completed with " + str(chunks) + " chunk(s)"
-            except ConnectorException:
-                raise
-            except Exception as e:
-                raise ConnectorException(
-                    "Error while uploading single file: " + str(e))
+            return self.__uploadFile(path)
 
-        # If configured filename is a special file, exit with a warning
+        # If configured filename is a special file, exit with an error
         else:
             raise ConnectorException("Configured FILENAME is invalid")
 
@@ -235,6 +205,44 @@ class Connector:
         except Exception as e:
             raise ConnectorException(
                 "Error while requesting an upload url: " + str(e))
+
+    # Upload directory method. Creates the remote folder and start a new transfer for each file inside it
+
+    def __uploadDirectory(self, path):
+        try:
+
+            # Create a remote folder with the same name
+            self.__createFolder(os.path.basename(path))
+
+            # Read all files inside it
+            filesCount = 0
+            for root, dirs, files in os.walk(path):
+
+                # For each file get an upload url and upload it
+                for name in files:
+                    self.__getUploadUrl(name, os.path.basename(path) + "/")
+                    self.__uploadBytes(os.path.join(root, name))
+                    filesCount += 1
+
+            # Return a confirmation message
+            return "Upload completed. " + str(filesCount) + " file(s) uploaded"
+        except ConnectorException:
+            raise
+        except Exception as e:
+            raise ConnectorException(
+                "Error while uploading directory files: " + str(e))
+
+    # Upload file method. Transfer a single file to the remote folder
+    def __uploadFile(self, path):
+        try:
+            self.__getUploadUrl(os.path.basename(path))
+            chunks = self.__uploadBytes(path)
+            return "Upload completed with " + str(chunks) + " chunk(s)"
+        except ConnectorException:
+            raise
+        except Exception as e:
+            raise ConnectorException(
+                "Error while uploading single file: " + str(e))
 
     # Bytes transfer method. Uploads a given file in chunks of bytes to the configured upload url
 
