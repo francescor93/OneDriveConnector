@@ -6,6 +6,7 @@ import json
 import logging
 import requests
 from .ConnectorException import ConnectorException
+from logging.handlers import RotatingFileHandler
 from urllib.parse import quote
 from dotenv import load_dotenv
 from os.path import dirname, abspath
@@ -33,12 +34,12 @@ class Connector:
             raise ConnectorException("Cannot read from .env file.")
 
         # Try to access log file or throw an exception
-        logfile = dirname(dirname(abspath(__file__))) + "/connector.log"
+        logFile = dirname(dirname(abspath(__file__))) + "/logs/connector.log"
         try:
-            if os.path.isfile(logfile):
-                fp = open(logfile, "a")
+            if os.path.isfile(logFile):
+                fp = open(logFile, "a")
             else:
-                fp = open(logfile, "w")
+                fp = open(logFile, "w")
         except ConnectorException:
             raise
         except Exception:
@@ -47,9 +48,15 @@ class Connector:
         # Configure logging
         fp.close()
         logLevel = logging.getLevelName(self.logLevel)
-        logging.basicConfig(filename=logfile, filemode='a',
-                            format='[%(asctime)-15s] %(levelname)s: %(message)s',
-                            level=logLevel, datefmt='%Y-%m-%d %H:%M:%S')
+        self.logger = logging.getLogger('connector_logger')
+        self.logger.setLevel(logLevel)
+        self.logger.propagate = False
+        fh = RotatingFileHandler(logFile, maxBytes=10485760, backupCount=10)
+        formatter = logging.Formatter(
+            '[%(asctime)-15s] %(levelname)s: %(message)s')
+        fh.setFormatter(formatter)
+        fh.setLevel(logLevel)
+        self.logger.addHandler(fh)
 
         # Change working directory to script directory
         dname = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -58,7 +65,10 @@ class Connector:
         # If (part of) configuration is missing, throw an exception
         if (self.clientId == "" or self.clientSecret == "" or self.fileName == "" or self.chunkSize == ""):
             raise ConnectorException(
-                "System has not been configured yet. Please update the .env file and restart the script.")
+                "Script has not been configured yet. Please update the .env file and restart the script.")
+
+        # Log script status
+        self.logger.debug("Script ready")
 
     # Login method. Prompts the user for the code, exchanges it for an authentication token and saves it into object properties
 
@@ -67,6 +77,9 @@ class Connector:
         # Run only if token property is empty
         if (self.token == ""):
             try:
+
+                # Log token request
+                self.logger.debug("No token defined. Requesting user access.")
 
                 # Generate the url to visit and show it to the user
                 url = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize" + \
@@ -92,11 +105,12 @@ class Connector:
 
     def upload(self, requiredPath=""):
 
-        # If filename path is relative add "files" folder, then normalize
+        # If filename path is relative add "files" folder, then normalize and log
         path = requiredPath if requiredPath != "" else self.fileName
         if not os.path.isabs(path):
             path = "files/" + path
         path = os.path.normpath(path)
+        self.logger.info("Upload requested. Path is: " + path)
 
         # If configured path is a directory, let's call directory upload method
         if os.path.isdir(path):
@@ -115,7 +129,11 @@ class Connector:
     def __exchangeToken(self, code, isRefresh=False):
         try:
 
-            # Call endpoint
+            # Log request
+            self.logger.debug(
+                "Exchanging temporary token for a long-lasting one")
+
+            # Prepare data
             url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
             data = {
                 'client_id': self.clientId,
@@ -128,7 +146,17 @@ class Connector:
             else:
                 data["code"] = code
                 data["grant_type"] = 'authorization_code'
+
+            # Log request
+            self.logger.debug("Sending request to endpoint " + url)
+
+            # Send request
             response = requests.post(url, data)
+
+            # Log response
+            self.logger.debug("Response received:")
+            self.logger.debug(response)
+            self.logger.debug(response.text)
 
             # Extract values from response
             body = response.text
@@ -144,9 +172,11 @@ class Connector:
                 f.write("LOGLEVEL=" + self.logLevel + "\n")
                 f.write("ACCESSTOKEN=" + body["access_token"] + "\n")
                 f.write("REFRESHTOKEN=" + body["refresh_token"])
+            self.logger.debug(".env file updated")
 
-            # Update object property
+            # Update object property, log and return
             self.token = body["access_token"]
+            self.logger.info("Got new token")
             return body["access_token"]
         except ConnectorException:
             raise
@@ -158,6 +188,10 @@ class Connector:
 
     def __createFolder(self, name):
         try:
+
+            # Log request
+            self.logger.debug(
+                "Requesting the creation of a new remote folder ")
 
             # Prepare  data for the call
             url = "https://graph.microsoft.com/v1.0/drive/root/children"
@@ -174,6 +208,7 @@ class Connector:
             # Return generated folder name for confirmation
             body = response.text
             body = json.loads(body)
+            self.logger.info("Created folder named: " + body["name"])
             return body["name"]
         except ConnectorException:
             raise
@@ -185,6 +220,9 @@ class Connector:
 
     def __getUploadUrl(self, fileName, folder=""):
         try:
+
+            # Log request
+            self.logger.debug("Requesting a new upload url")
 
             # Prepare  data for the call
             url = "https://graph.microsoft.com/v1.0/drive/root:/" + \
@@ -198,6 +236,7 @@ class Connector:
             # Extract uploadUrl value from body, update object property and return it for confirmation
             body = response.text
             body = json.loads(body)
+            self.logger.info("Got upload url: " + body["uploadUrl"])
             self.uploadUrl = body["uploadUrl"]
             return body["uploadUrl"]
         except ConnectorException:
@@ -211,6 +250,10 @@ class Connector:
     def __uploadDirectory(self, path):
         try:
 
+            # Log request
+            self.logger.debug(
+                "Path that was requested to upload is a directory. Let's upload it.")
+
             # Create a remote folder with the same name
             self.__createFolder(os.path.basename(path))
 
@@ -220,12 +263,17 @@ class Connector:
 
                 # For each file get an upload url and upload it
                 for name in files:
+                    self.logger.debug(
+                        "Let's upload another file from the selected folder")
                     self.__getUploadUrl(name, os.path.basename(path) + "/")
                     self.__uploadBytes(os.path.join(root, name))
                     filesCount += 1
 
             # Return a confirmation message
-            return "Upload completed. " + str(filesCount) + " file(s) uploaded"
+            message = "Upload completed. " + \
+                str(filesCount) + " file(s) uploaded"
+            self.logger.info(message)
+            return message
         except ConnectorException:
             raise
         except Exception as e:
@@ -235,9 +283,13 @@ class Connector:
     # Upload file method. Transfer a single file to the remote folder
     def __uploadFile(self, path):
         try:
+            self.logger.debug(
+                "Path that was requested to upload is a file. Let's upload it.")
             self.__getUploadUrl(os.path.basename(path))
             chunks = self.__uploadBytes(path)
-            return "Upload completed with " + str(chunks) + " chunk(s)"
+            message = "Upload completed with " + str(chunks) + " chunk(s)"
+            self.logger.info(message)
+            return message
         except ConnectorException:
             raise
         except Exception as e:
@@ -249,16 +301,21 @@ class Connector:
     def __uploadBytes(self, filePath):
         try:
 
+            # Log request
+            self.logger.debug("Transferring file via raw bytes")
+
             # If configured chunk size is larger than the maximum chunk size allowed by OneDrive correct it, but show a warning
             if int(self.chunkSize) > 60:
                 self.chunkSize = 60
-                print(
-                    "Configured chunk size is larger than allowed: proceeding using 60MB chunks.")
+                message = "Configured chunk size is larger than allowed: proceeding using 60MB chunks."
+                self.logger.info(message)
+                print(message)
 
             # Open local file and calculate size
             with open(filePath, "rb") as f:
                 fileSize = os.path.getsize(f.name)
                 chunkSizeBytes = int(self.chunkSize) * 1024 * 1024
+                self.logger.debug("Calculated chunk size is: " + str(chunkSizeBytes) + " bytes")
                 i = 0
 
                 # Split it in chunks
@@ -269,6 +326,9 @@ class Connector:
                     # Prevent the calculated rangeMax from being larger than the file size
                     if rangeMax > fileSize:
                         rangeMax = fileSize - 1
+
+                    # Log range
+                    self.logger.debug("Current range is: " + str(rangeMin) + " ~ " + str(rangeMax))
 
                     # Send upload request
                     url = self.uploadUrl
@@ -284,6 +344,7 @@ class Connector:
                     i += 1
 
                 # Return chunks count for confirmation
+                self.logger.debug("Upload completed. " + str(i) + " chunks used.")
                 return i
         except ConnectorException:
             raise
@@ -297,10 +358,8 @@ class Connector:
             # Loop indefinitely
             while True:
 
-                # Log the request
-                logging.debug("New request")
-                logging.debug(url)
-                logging.debug(headers)
+                # Log request
+                self.logger.debug("Sending request to endpoint " + url)
 
                 # Call endpoint with the given method
                 if method == "post":
@@ -310,10 +369,10 @@ class Connector:
                 else:
                     raise ConnectorException("Missing method")
 
-                # Log the response
-                logging.debug("Response received")
-                logging.debug(response)
-                logging.debug(response.text)
+                # Log response
+                self.logger.debug("Response received:")
+                self.logger.debug(response)
+                self.logger.debug(response.text)
 
                 # If the request is successful, exit the loop
                 if response.ok:
@@ -326,9 +385,12 @@ class Connector:
 
                 # If token is expired, refresh it and update header
                 if errorCode == "InvalidAuthenticationToken":
+                    self.logger.debug("Token is invalid: requesting a new one")
                     self.__exchangeToken(self.refreshToken, True)
                     headers["Authorization"] = "Bearer " + self.token
-                    print("Token has been refreshed")
+                    message = "Token has been refreshed"
+                    self.logger.info(message)
+                    print(message)
 
                 # Otherwise raise an exception
                 else:
