@@ -1,8 +1,8 @@
 # OneDriveConnector
 
-This is a simple script to upload files to your OneDrive cloud using *Microsoft Graph API*.
+This is a simple CLI script to upload files to your OneDrive cloud using *Microsoft Graph API*.
 
-It can be used, for example, as a scheduled job to regularly transfer your content in the background. But any other proposal is welcome.
+It can be used, for example, as a scheduled job to regularly transfer your content in background. But any other proposal is welcome.
 
 ## Prerequisites
 
@@ -62,14 +62,10 @@ At the end you will be shown a success message indicating how many chunks were n
 
 In the event of an error, a detailed message will explain what went wrong, and the script will require user confirmation to exit.
 
-## More informations
+## Final informations
 
-This project is open to anyone who wants to contribute - just make your changes separately and send me a pull request describing your change and motivation.
+If you want to contribute to the project, you're welcome: open an issue explaining your idea and its development will be evaluated, or create the code changes yourself and open a pull request when you've done.
 
-If you have problems or suggestions, feel free to open an issue describing them: I will be with you as soon as possible.
-
-For any other needs contact me through GitHub or through my website.
-
-Please note that this project is under development and is provided "as is", and it is by no means assured that it will be free from bugs or other problems. Also note that it was created in a personal capacity and is in no way affiliated with Microsoft Corporation.
+Please note that this code is provided "as is", and it's not guaranteed to be bug free - I do my best to keep it up to date in my spare time. Also note that it was created in a personal capacity and is in no way affiliated with Microsoft Corporation.
 
 Thanks for taking an interest in **OneDriveConnector**!
